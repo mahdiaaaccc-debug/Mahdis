@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>نظام الكاشير — مسح باركود بالكاميرا</title>
+  <style>
+* { box-sizing: border-box; font-family: system-ui, Tahoma, Arial; }
+body { margin: 0; background: #f8fafc; color: #0f172a; }
+.header { display:flex; justify-content:space-between; align-items:center; padding:12px; background:#ffffff; border-bottom:1px solid #e2e8f0; position:sticky; top:0; z-index:10; gap:8px; flex-wrap:wrap; }
+.header h1 { margin:0; font-size:18px; }
+.totals { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.totals input { width:80px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
+.totals .grand { font-weight:700; }
+.admin-actions { display:flex; align-items:center; gap:8px; }
+.admin-actions button, .import-label { padding:8px 10px; border:0; border-radius:8px; background:#0ea5e9; color:#fff; cursor:pointer; }
+.import-label { display:inline-flex; align-items:center; gap:6px; }
+.import-label input { display:none; }
+
+.container { display:grid; grid-template-columns: 1.2fr 1fr; gap:16px; padding:12px; }
+.left, .right { background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; }
+.search-box { margin-bottom:10px; display:flex; gap:8px; align-items:center; }
+.search-box input { width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:10px; }
+.scan-controls { display:flex; gap:8px; align-items:center; }
+
+.products { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px; }
+.product { border:1px solid #e5e7eb; border-radius:10px; padding:10px; background:#fcfcfd; display:flex; flex-direction:column; gap:8px; }
+.product h3 { margin:0; font-size:16px; }
+.product .price { color:#0ea5e9; font-weight:700; }
+.product button { padding:8px; border:0; border-radius:8px; background:#0ea5e9; color:#fff; cursor:pointer; }
+.product button:active { transform: translateY(1px); }
+
+.right h2 { margin-top:0; }
+.cart-table { width:100%; border-collapse: collapse; }
+.cart-table th, .cart-table td { border-bottom:1px solid #e5e7eb; padding:8px; text-align:right; }
+.cart-table input[type="number"] { width:70px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; }
+.actions { display:flex; gap:8px; margin-top:10px; }
+.actions button { padding:10px 12px; border:0; border-radius:8px; background:#1e293b; color:#fff; cursor:pointer; }
+.actions button:active { transform: translateY(1px); }
+
+.modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,0.35); padding:16px; }
+.modal-content { width: 100%; max-width: 900px; background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; }
+.modal-body { padding:12px; }
+.modal-header h3 { margin:0; font-size:18px; }
+.modal-header button { border:0; background:#ef4444; color:#fff; padding:6px 10px; border-radius:8px; cursor:pointer; }
+
+.form-row { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.form-row.two { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+.form-row input { padding:10px; border:1px solid #cbd5e1; border-radius:8px; }
+.barcode-row { display:flex; gap:8px; }
+.barcode-row button { padding:8px 10px; border:0; border-radius:8px; background:#0ea5e9; color:#fff; cursor:pointer; }
+
+.modal-actions { display:flex; gap:8px; margin:8px 0 14px; }
+.modal-actions button { padding:10px 12px; border:0; border-radius:8px; background:#16a34a; color:#fff; cursor:pointer; }
+.modal-actions .secondary { background:#64748b; }
+
+.prod-table { width:100%; border-collapse: collapse; }
+.prod-table th, .prod-table td { border-bottom:1px solid #e5e7eb; padding:8px; text-align:right; }
+.prod-actions button { margin-left:6px; padding:6px 8px; border:0; border-radius:6px; cursor:pointer; }
+.prod-actions .edit { background:#f59e0b; color:#000; }
+.prod-actions .delete { background:#ef4444; color:#fff; }
+
+.receipt { width: 280px; padding:12px; background:#fff; color:#000; }
+.receipt table { width:100%; border-collapse: collapse; }
+.receipt th, .receipt td { border-bottom:1px solid #ddd; padding:6px; text-align:right; font-size:13px; }
+.receipt h3 { text-align:center; margin:8px 0 12px; }
+.receipt .receipt-totals { margin-top:10px; }
+.receipt .grand { font-weight:700; }
+.receipt .thanks { text-align:center; margin-top:8px; }
+
+.video-preview { width:100%; max-width:420px; background:#000; border-radius:8px; overflow:hidden; }
+.video-preview video { width:100%; height:auto; display:block; }
+
+.status { padding:8px; background:#f1f5f9; border-radius:8px; font-size:13px; }
+
+@media print {
+  body * { visibility: hidden; }
+  #receipt, #receipt * { visibility: visible; }
+  #receipt { position:absolute; left:0; top:0; }
+}
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>نظام الكاشير</h1>
+    <div class="totals">
+      <div>الإجمالي الفرعي: <span id="subtotal">0</span></div>
+      <div>الخصم %: <input id="discount" type="number" min="0" max="100" value="0"></div>
+      <div>الضريبة %: <input id="tax" type="number" min="0" max="100" value="0"></div>
+      <div class="grand">الإجمالي: <span id="grandTotal">0</span></div>
+      <button id="checkoutBtn">تحصيل/طباعة</button>
+    </div>
+    <div class="admin-actions">
+      <button id="manageProductsBtn">إدارة المنتجات</button>
+      <button id="exportCsvBtn">تصدير CSV</button>
+      <label class="import-label">استيراد CSV
+        <input type="file" id="importCsvInput" accept=".csv" hidden />
+      </label>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="left">
+      <div class="search-box">
+        <input id="search" placeholder="ابحث باسم المنتج أو الباركود..." autocomplete="off" />
+        <div class="scan-controls">
+          <button id="startCam">فتح الكاميرا ومسح الباركود</button>
+          <button id="stopCam" style="display:none;background:#ef4444;">إيقاف الكاميرا</button>
+        </div>
+      </div>
+
+      <div class="products" id="productList"></div>
+    </section>
+
+    <section class="right">
+      <h2>السلة</h2>
+      <table class="cart-table">
+        <thead>
+          <tr>
+            <th>المنتج</th>
+            <th>السعر</th>
+            <th>الكمية</th>
+            <th>الإجمالي</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="cartBody"></tbody>
+      </table>
+      <div class="actions">
+        <button id="clearCart">تفريغ السلة</button>
+        <button id="saveCart">حفظ مؤقت</button>
+        <button id="loadCart">استرجاع</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- نافذة إدارة المنتجات -->
+  <div id="productModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">إضافة منتج</h3>
+        <button id="closeModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>الاسم</label>
+          <input id="pName" placeholder="مثال: ماء صحة 500ml" />
+        </div>
+        <div class="form-row">
+          <label>السعر (د.ع)</label>
+          <input id="pPrice" type="number" min="0" placeholder="مثال: 500" />
+        </div>
+        <div class="form-row">
+          <label>الباركود</label>
+          <div class="barcode-row">
+            <input id="pBarcode" placeholder="أرقام فقط" />
+            <button id="genBarcode">توليد باركود</button>
+          </div>
+          <small>ملاحظة: يُفضّل EAN-13. سيتم التحقق من التكرار.</small>
+        </div>
+        <div class="form-row two">
+          <div>
+            <label>الرصيد (اختياري)</label>
+            <input id="pStock" type="number" min="0" step="0.001" placeholder="0" />
+          </div>
+          <div>
+            <label>الوحدة</label>
+            <input id="pUnit" placeholder="pcs / كرتون / كغم" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="saveProduct">حفظ المنتج</button>
+          <button id="resetForm" class="secondary">تفريغ الحقول</button>
+        </div>
+
+        <hr/>
+        <h4>قائمة المنتجات</h4>
+        <table class="prod-table">
+          <thead>
+            <tr>
+              <th>الاسم</th>
+              <th>السعر</th>
+              <th>الباركود</th>
+              <th>الرصيد</th>
+              <th>الوحدة</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="prodTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- شاشة الفيديو (تظهر عند تشغيل الكاميرا) -->
+  <div id="videoOverlay" class="modal" style="display:none;align-items:flex-start;padding-top:40px;">
+    <div class="modal-content" style="max-width:480px;padding:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong>كاميرا المسح</strong>
+        <button id="closeVideo" style="background:#ef4444;color:#fff;border:0;padding:6px 10px;border-radius:6px;">إغلاق</button>
+      </div>
+      <div class="video-preview">
+        <video id="video" autoplay playsinline></video>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <div class="status" id="scanStatus">الحالة: متوقف</div>
+        <div style="flex:1"></div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button id="snapBtn">التقاط صورة (للاختبار)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="receipt" class="receipt" style="display:none;">
+    <h3>فاتورة البيع</h3>
+    <div id="receiptMeta"></div>
+    <table>
+      <thead><tr><th>المنتج</th><th>سعر</th><th>كمية</th><th>المجموع</th></tr></thead>
+      <tbody id="receiptBody"></tbody>
+    </table>
+    <div class="receipt-totals">
+      <div>الإجمالي الفرعي: <span id="rSubtotal">0</span></div>
+      <div>الخصم: <span id="rDiscount">0</span></div>
+      <div>الضريبة: <span id="rTax">0</span></div>
+      <div class="grand">الإجمالي: <span id="rGrand">0</span></div>
+    </div>
+    <p class="thanks">شكرًا لزيارتكم</p>
+  </div>
+
+  <!-- Load Quagga fallback library -->
+  <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+
+  <script>
+// ====== قاعدة بيانات محلية (localStorage) ======
+const STORAGE_KEYS = { products: "pos_products", cart: "pos_cart" };
+
+// بيانات تجريبية
+const demoProducts = [
+  { id: "1001", name: "ماء صحة 500ml", price: 250, barcode: "6281001000013", stock: 0, unit: "pcs" },
+  { id: "1002", name: "بيبسي علبة",     price: 500, barcode: "6281001000020", stock: 0, unit: "pcs" },
+  { id: "1003", name: "شيبس بطعم الجبن", price: 750, barcode: "6281001000037", stock: 0, unit: "pcs" },
+];
+
+const $ = (id) => document.getElementById(id);
+
+let state = {
+  products: JSON.parse(localStorage.getItem(STORAGE_KEYS.products) || "null") || demoProducts,
+  cart: [], discount: 0, tax: 0, editingId: null,
+  cameraStream: null, scanning: false, quaggaRunning: false
+};
+
+function saveProducts(){ localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(state.products)); }
+function renderProducts(list = state.products){
+  const wrap = $("productList"); wrap.innerHTML = "";
+  list.forEach(p => {
+    const card = document.createElement("div"); card.className = "product";
+    card.innerHTML = `<h3>${p.name}</h3><div class="price">${p.price} د.ع</div><div class="small">باركود: ${p.barcode || "-"}</div><button data-id="${p.id}">إضافة للسلة</button>`;
+    card.querySelector("button").addEventListener("click", ()=>addToCart(p.id));
+    wrap.appendChild(card);
+  });
+}
+
+function addToCart(idOrBarcode){
+  let p = state.products.find(x => x.id===idOrBarcode || x.barcode===idOrBarcode);
+  if(!p){
+    if(confirm("لم يتم العثور على المنتج. هل تريد إنشاؤه الآن؟")){
+      openModal();
+      $("pBarcode").value = idOrBarcode;
+    }
+    return;
+  }
+  const line = state.cart.find(x=>x.id===p.id);
+  if(line) line.qty +=1; else state.cart.push({ id:p.id, name:p.name, price:p.price, qty:1 });
+  renderCart();
+}
+
+function removeFromCart(id){ state.cart = state.cart.filter(x=>x.id!==id); renderCart(); }
+function setQty(id, qty){ const line = state.cart.find(x=>x.id===id); if(!line) return; line.qty = Math.max(1, Number(qty)||1); renderCart(); }
+function calcTotals(){ const subtotal = state.cart.reduce((s,x)=>s+x.price*x.qty,0); const discountAmt = subtotal*(state.discount/100); const afterDiscount = subtotal-discountAmt; const taxAmt = afterDiscount*(state.tax/100); const grand = Math.round(afterDiscount+taxAmt); return {subtotal, discountAmt, taxAmt, grand}; }
+function renderCart(){ const tbody=$("cartBody"); tbody.innerHTML=""; state.cart.forEach(line=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${line.name}</td><td>${line.price}</td><td><input type="number" min="1" value="${line.qty}" /></td><td>${line.price*line.qty}</td><td><button data-remove="${line.id}">✕</button></td>`; tr.querySelector("input").addEventListener("change",(e)=>setQty(line.id,e.target.value)); tr.querySelector("button").addEventListener("click",()=>removeFromCart(line.id)); tbody.appendChild(tr); }); const totals=calcTotals(); $("subtotal").textContent=totals.subtotal; $("grandTotal").textContent=totals.grand; }
+
+function printReceipt(){ const {subtotal, discountAmt, taxAmt, grand}=calcTotals(); const now=new Date(); $("receiptMeta").textContent=`التاريخ: ${now.toLocaleDateString('ar-IQ')} — الوقت: ${now.toLocaleTimeString('ar-IQ')}`; const body=$("receiptBody"); body.innerHTML=""; state.cart.forEach(line=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${line.name}</td><td>${line.price}</td><td>${line.qty}</td><td>${line.price*line.qty}</td>`; body.appendChild(tr); }); $("rSubtotal").textContent=subtotal; $("rDiscount").textContent=Math.round(discountAmt); $("rTax").textContent=Math.round(taxAmt); $("rGrand").textContent=grand; const receipt=$("receipt"); receipt.style.display="block"; window.print(); receipt.style.display="none"; }
+
+// Product modal code (same as before)
+function openModal(editProduct=null){ $("productModal").style.display="flex"; if(editProduct){ $("modalTitle").textContent="تعديل منتج"; $("pName").value=editProduct.name||""; $("pPrice").value=editProduct.price||""; $("pBarcode").value=editProduct.barcode||""; $("pStock").value=editProduct.stock??0; $("pUnit").value=editProduct.unit||""; state.editingId = editProduct.id; } else { $("modalTitle").textContent="إضافة منتج"; resetForm(); state.editingId=null; } renderProductsTable(); }
+function closeModal(){ $("productModal").style.display="none"; }
+function resetForm(){ $("pName").value=""; $("pPrice").value=""; $("pBarcode").value=""; $("pStock").value=""; $("pUnit").value=""; }
+
+function generateEAN13(){ let base=""; for(let i=0;i<12;i++) base+=Math.floor(Math.random()*10); const digits=base.split("").map(Number); let sum=0; for(let i=0;i<digits.length;i++){ sum += (i%2===0)? digits[i] : digits[i]*3; } const mod=sum%10; const check=(10-mod)%10; return base+check; }
+
+function saveProductFromForm(){ const name=$("pName").value.trim(); const price=Number($("pPrice").value||0); const barcode=$("pBarcode").value.trim(); const stock=Number($("pStock").value||0); const unit=$("pUnit").value.trim()||"pcs"; if(!name) return alert("الاسم مطلوب."); if(!(price>0)) return alert("السعر غير صالح."); if(barcode && !/^\d{8,14}$/.test(barcode)) return alert("الباركود يجب أن يكون أرقامًا (8-14 رقم)."); const dup = state.products.find(p=>p.barcode && barcode && p.barcode===barcode && p.id!==state.editingId); if(dup) return alert("الباركود مستخدم مسبقًا."); if(state.editingId){ const idx=state.products.findIndex(p=>p.id===state.editingId); if(idx>=0){ state.products[idx] = {...state.products[idx], name, price, barcode, stock, unit}; } } else { const newId = Date.now().toString().slice(-8); state.products.push({ id:newId, name, price, barcode, stock, unit }); } saveProducts(); renderProducts(); renderProductsTable(); alert("تم الحفظ."); }
+
+function renderProductsTable(){ const body=$("prodTableBody"); body.innerHTML=""; state.products.forEach(p=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${p.name}</td><td>${p.price}</td><td>${p.barcode||"-"}</td><td>${p.stock??0}</td><td>${p.unit||""}</td><td class="prod-actions"><button class="edit">تعديل</button><button class="delete">حذف</button></td>`; tr.querySelector(".edit").addEventListener("click",()=>openModal(p)); tr.querySelector(".delete").addEventListener("click",()=>{ if(confirm("تأكيد حذف المنتج؟")){ state.products = state.products.filter(x=>x.id!==p.id); saveProducts(); renderProducts(); renderProductsTable(); } }); body.appendChild(tr); }); }
+
+// CSV import/export (same as before)
+function exportCSV(){ const head=["id","name","price","barcode","stock","unit"]; const rows=state.products.map(p=>[p.id,p.name,p.price,p.barcode||"",p.stock??0,p.unit||""]); const all=[head,...rows].map(r=>r.map(v=>(""+v).replaceAll('"','""')).map(v=>`"${v}"`).join(",")).join("\n"); const blob=new Blob([all],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="products.csv"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+function importCSV(file){ const reader=new FileReader(); reader.onload=(e)=>{ const text=e.target.result; const lines=text.split(/\r?\n/).filter(Boolean); if(!lines.length) return alert("ملف CSV فارغ."); const rows=lines.slice(1).map(line=>{ const cells=[]; let curr="", inQuotes=false; for(let i=0;i<line.length;i++){ const ch=line[i]; if(ch==='"'){ if(inQuotes && line[i+1]==='"'){ curr+='"'; i++; } else inQuotes=!inQuotes; } else if(ch===',' && !inQuotes){ cells.push(curr); curr=""; } else curr+=ch; } cells.push(curr); return cells; }); rows.forEach(c=>{ if(!c.length) return; const [id,name,price,barcode,stock,unit]=c; if(!name) return; const existing = state.products.find(p=>p.id===id) || (barcode ? state.products.find(p=>p.barcode===barcode) : null); const obj={ id: id||Date.now().toString().slice(-8), name: name, price: Number(price||0), barcode: barcode||"", stock: Number(stock||0), unit: unit||"pcs" }; if(existing){ const idx=state.products.findIndex(p=>p.id===existing.id); state.products[idx] = {...existing,...obj, id: existing.id}; } else state.products.push(obj); }); saveProducts(); renderProducts(); renderProductsTable(); alert("تم استيراد CSV."); }; reader.readAsText(file,"utf-8"); }
+
+// ===== Camera barcode scanning =====
+// We attempt to use the native BarcodeDetector API if available, otherwise fall back to QuaggaJS.
+async function startCameraScan(){
+  if(state.scanning) return;
+  const overlay = $("videoOverlay"); const video = $("video"); const status = $("scanStatus");
+  overlay.style.display = "flex"; $("startCam").style.display="none"; $("stopCam").style.display="inline-block";
+  // Try BarcodeDetector API
+  if(window.BarcodeDetector){
+    try{
+      const formats = await BarcodeDetector.getSupportedFormats();
+      const detector = new BarcodeDetector({formats});
+      const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
+      video.srcObject = stream; state.cameraStream = stream; state.scanning = true; status.textContent = "الحالة: مترقب لمسح الباركود...";
+      // poll frames
+      const track = stream.getVideoTracks()[0];
+      const imageCapture = new ImageCapture(track);
+      async function detectLoop(){
+        if(!state.scanning) return;
+        try{
+          const bitmap = await imageCapture.grabFrame();
+          const barcodes = await detector.detect(bitmap);
+          if(barcodes && barcodes.length){
+            const code = barcodes[0].rawValue || barcodes[0].rawData && new TextDecoder().decode(barcodes[0].rawData);
+            if(code){
+              status.textContent = "تم قراءة: " + code;
+              addToCart(code);
+              // briefly pause scanning to avoid duplicates
+              await pauseScanShort();
+            }
+          }
+        }catch(err){
+          // ignore frame errors
+        }
+        requestAnimationFrame(detectLoop);
+      }
+      detectLoop();
+    }catch(err){
+      console.warn("BarcodeDetector failed", err);
+      // fallback to quagga
+      startQuagga();
+    }
+  } else {
+    // fallback to QuaggaJS
+    startQuagga();
+  }
+}
+
+function pauseScanShort(){
+  return new Promise(res=>{
+    state.scanning = false;
+    setTimeout(()=>{ state.scanning = true; res(); }, 1000);
+  });
+}
+
+function stopCameraScan(){
+  // stop streams and stop quagga if running
+  if(state.cameraStream){
+    state.cameraStream.getTracks().forEach(t=>t.stop());
+    state.cameraStream = null;
+  }
+  if(state.quaggaRunning && window.Quagga){
+    try{ Quagga.stop(); }catch(e){} 
+    state.quaggaRunning = false;
+  }
+  $("videoOverlay").style.display = "none";
+  $("startCam").style.display = "inline-block"; $("stopCam").style.display="none";
+  $("scanStatus").textContent = "الحالة: متوقف";
+  state.scanning = false;
+}
+
+function startQuagga(){
+  const status = $("scanStatus");
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    alert("الكاميرا غير مدعومة في هذا المتصفح.");
+    return;
+  }
+  // initialize Quagga
+  state.quaggaRunning = true;
+  Quagga.init({
+    inputStream: { name: "Live", type: "LiveStream", target: document.querySelector('#video'), constraints: { facingMode: "environment" } },
+    decoder: { readers: ["ean_reader","ean_8_reader","code_128_reader","code_39_reader","upc_reader","upc_e_reader"] },
+    locate: true
+  }, function(err){
+    if(err){ console.error(err); alert("فشل تشغيل Quagga: " + err); state.quaggaRunning=false; return; }
+    Quagga.start();
+    $("scanStatus").textContent = "الحالة: مسح...";
+  });
+  Quagga.onDetected(function(data){
+    if(!data || !data.codeResult) return;
+    const code = data.codeResult.code;
+    if(code){
+      $("scanStatus").textContent = "تم قراءة: " + code;
+      addToCart(code);
+      // prevent duplicates briefly
+      Quagga.pause();
+      setTimeout(()=>{ try{ Quagga.onProcessed(()=>{}); Quagga.onDetected(()=>{}); }catch(e){}; Quagga.start(); }, 800);
+    }
+  });
+}
+
+// UI bindings and events
+function initEvents(){
+  $("search").addEventListener("input",(e)=>{ const q=e.target.value.trim(); if(!q) return renderProducts(); const filtered = state.products.filter(p => (p.name||"").includes(q) || (p.barcode||"").includes(q)); renderProducts(filtered); });
+  $("discount").addEventListener("input",(e)=>{ state.discount=Math.min(100,Math.max(0,Number(e.target.value)||0)); renderCart(); });
+  $("tax").addEventListener("input",(e)=>{ state.tax=Math.min(100,Math.max(0,Number(e.target.value)||0)); renderCart(); });
+  $("clearCart").addEventListener("click",()=>{ if(confirm("تأكيد تفريغ السلة؟")){ state.cart=[]; renderCart(); } });
+  $("saveCart").addEventListener("click",()=>{ localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify({ cart: state.cart, discount: state.discount, tax: state.tax })); alert("تم حفظ السلة مؤقتًا."); });
+  $("loadCart").addEventListener("click",()=>{ const saved=JSON.parse(localStorage.getItem(STORAGE_KEYS.cart)||"null"); if(!saved) return alert("لا توجد سلة محفوظة."); state.cart=saved.cart||[]; state.discount=saved.discount||0; state.tax=saved.tax||0; $("discount").value=state.discount; $("tax").value=state.tax; renderCart(); });
+  $("checkoutBtn").addEventListener("click",()=>{ if(state.cart.length===0) return alert("السلة فارغة."); printReceipt(); });
+  $("search").addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ const code=e.target.value.trim(); if(!code) return; addToCart(code); e.target.select(); } });
+  $("manageProductsBtn").addEventListener("click",()=>openModal()); $("closeModal").addEventListener("click",closeModal); $("resetForm").addEventListener("click",resetForm); $("genBarcode").addEventListener("click",()=>{$("pBarcode").value=generateEAN13();}); $("saveProduct").addEventListener("click",saveProductFromForm); $("exportCsvBtn").addEventListener("click",exportCSV); $("importCsvInput").addEventListener("change",(e)=>{ if(e.target.files && e.target.files[0]){ importCSV(e.target.files[0]); e.target.value=""; } });
+
+  // Camera controls
+  $("startCam").addEventListener("click",()=> startCameraScan().catch(err=>{ alert('فشل فتح الكاميرا: '+err); console.error(err); }));
+  $("stopCam").addEventListener("click",()=> stopCameraScan());
+  $("closeVideo").addEventListener("click",()=> stopCameraScan());
+  $("snapBtn").addEventListener("click",()=>{ // snapshot for testing
+    const video = $("video"); const canvas = document.createElement("canvas"); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext("2d").drawImage(video,0,0); const data = canvas.toDataURL('image/png'); const w = window.open('about:blank','_blank'); w.document.write('<img src="'+data+'">'); });
+}
+
+function bootstrap(){ if(!localStorage.getItem(STORAGE_KEYS.products)) localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(state.products)); renderProducts(); renderCart(); initEvents(); }
+bootstrap();
+
+  </script>
+</body>
+</html>
