@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8" />
+<title>نظام بصمة حضور العدالة كروب</title>
+<style>
+  body { font-family: Arial, sans-serif; direction: rtl; padding: 20px; background: #f9f9f9; }
+  h1 { color: #2c3e50; }
+  label { font-size: 18px; }
+  input[type=text] { padding: 10px; font-size: 16px; margin: 10px 0; width: 100%; max-width: 300px; }
+  button { padding: 15px 25px; font-size: 18px; margin: 10px 5px 20px 5px; cursor: pointer; border: none; background: #3498db; color: white; border-radius: 5px; }
+  button:hover { background: #2980b9; }
+  #status { margin-top: 20px; white-space: pre-line; font-size: 16px; color: #27ae60; }
+  table { width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 30px; }
+  th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+  th { background-color: #3498db; color: white; }
+</style>
+</head>
+<body>
+
+<h1>نظام بصمة حضور العدالة كروب</h1>
+<p>مرحباً بكم في نظام البصمة الخاص بـ <strong>العدالة كروب</strong></p>
+
+<label>اسم الموظف:</label><br/>
+<input type="text" id="name" placeholder="أدخل اسمك" />
+<br/>
+<button onclick="recordAttendance('حضور')">تسجيل حضور</button>
+<button onclick="recordAttendance('انصراف')">تسجيل انصراف</button>
+
+<div id="status"></div>
+
+<h2>سجل الحضور والانصراف</h2>
+<table id="recordsTable">
+  <thead>
+    <tr>
+      <th>الاسم</th>
+      <th>نوع البصمة</th>
+      <th>التاريخ والوقت</th>
+      <th>الموقع (خط العرض، خط الطول)</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+
+<script>
+const statusEl = document.getElementById('status');
+const tableBody = document.querySelector('#recordsTable tbody');
+
+let records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
+renderRecords();
+
+function renderRecords() {
+  tableBody.innerHTML = '';
+  if(records.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="4">لا توجد سجلات حتى الآن.</td></tr>';
+    return;
+  }
+  records.forEach(rec => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${rec.name}</td>
+      <td>${rec.type}</td>
+      <td>${rec.datetime}</td>
+      <td>${rec.location}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+function recordAttendance(type) {
+  const name = document.getElementById('name').value.trim();
+  if (!name) {
+    alert('يرجى إدخال الاسم أولاً');
+    return;
+  }
+  
+  if (!navigator.geolocation) {
+    alert('الموقع الجغرافي غير مدعوم في متصفحك');
+    return;
+  }
+  
+  statusEl.textContent = 'جاري الحصول على الموقع...';
+  
+  navigator.geolocation.getCurrentPosition(position => {
+    const datetime = new Date().toLocaleString('ar-EG');
+    const location = position.coords.latitude.toFixed(5) + ", " + position.coords.longitude.toFixed(5);
+    
+    const record = {
+      name,
+      type,
+      datetime,
+      location
+    };
+    
+    records.push(record);
+    localStorage.setItem('attendanceRecords', JSON.stringify(records));
+    renderRecords();
+    
+    statusEl.textContent = `تم تسجيل ${type} بنجاح!\n${datetime}\nالموقع: ${location}`;
+    
+  }, error => {
+    alert('تعذر الحصول على الموقع: ' + error.message);
+    statusEl.textContent = '';
+  });
+}
+</script>
+
+</body>
+</html>

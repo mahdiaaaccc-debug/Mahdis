@@ -1,0 +1,69 @@
+* { box-sizing: border-box; font-family: system-ui, Tahoma, Arial; }
+body { margin: 0; background: #f8fafc; color: #0f172a; }
+.header { display:flex; justify-content:space-between; align-items:center; padding:16px; background:#ffffff; border-bottom:1px solid #e2e8f0; position:sticky; top:0; z-index:10; gap:12px; flex-wrap:wrap; }
+.header h1 { margin:0; font-size:20px; }
+.totals { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.totals input { width:80px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
+.totals .grand { font-weight:700; }
+.admin-actions { display:flex; align-items:center; gap:8px; }
+.admin-actions button, .import-label { padding:8px 10px; border:0; border-radius:8px; background:#0ea5e9; color:#fff; cursor:pointer; }
+.import-label { display:inline-flex; align-items:center; gap:6px; }
+.import-label input { display:none; }
+
+.container { display:grid; grid-template-columns: 1.2fr 1fr; gap:16px; padding:16px; }
+.left, .right { background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; }
+.search-box { margin-bottom:10px; }
+.search-box input { width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:10px; }
+
+.products { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px; }
+.product { border:1px solid #e5e7eb; border-radius:10px; padding:10px; background:#fcfcfd; display:flex; flex-direction:column; gap:8px; }
+.product h3 { margin:0; font-size:16px; }
+.product .price { color:#0ea5e9; font-weight:700; }
+.product button { padding:8px; border:0; border-radius:8px; background:#0ea5e9; color:#fff; cursor:pointer; }
+.product button:active { transform: translateY(1px); }
+
+.right h2 { margin-top:0; }
+.cart-table { width:100%; border-collapse: collapse; }
+.cart-table th, .cart-table td { border-bottom:1px solid #e5e7eb; padding:8px; text-align:right; }
+.cart-table input[type="number"] { width:70px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; }
+.actions { display:flex; gap:8px; margin-top:10px; }
+.actions button { padding:10px 12px; border:0; border-radius:8px; background:#1e293b; color:#fff; cursor:pointer; }
+.actions button:active { transform: translateY(1px); }
+
+/* Modal */
+.modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,0.35); padding:16px; }
+.modal-content { width: 100%; max-width: 900px; background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; }
+.modal-body { padding:12px; }
+.modal-header h3 { margin:0; font-size:18px; }
+.modal-header button { border:0; background:#ef4444; color:#fff; padding:6px 10px; border-radius:8px; cursor:pointer; }
+
+.form-row { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.form-row.two { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+.form-row input { padding:10px; border:1px solid #cbd5e1; border-radius:8px; }
+.barcode-row { display:flex; gap:8px; }
+.barcode-row button { padding:8px 10px; border:0; border-radius:8px; background:#0ea5e9; color:#fff; cursor:pointer; }
+
+.modal-actions { display:flex; gap:8px; margin:8px 0 14px; }
+.modal-actions button { padding:10px 12px; border:0; border-radius:8px; background:#16a34a; color:#fff; cursor:pointer; }
+.modal-actions .secondary { background:#64748b; }
+
+.prod-table { width:100%; border-collapse: collapse; }
+.prod-table th, .prod-table td { border-bottom:1px solid #e5e7eb; padding:8px; text-align:right; }
+.prod-actions button { margin-left:6px; padding:6px 8px; border:0; border-radius:6px; cursor:pointer; }
+.prod-actions .edit { background:#f59e0b; color:#000; }
+.prod-actions .delete { background:#ef4444; color:#fff; }
+
+.receipt { width: 280px; padding:12px; background:#fff; color:#000; }
+.receipt table { width:100%; border-collapse: collapse; }
+.receipt th, .receipt td { border-bottom:1px solid #ddd; padding:6px; text-align:right; font-size:13px; }
+.receipt h3 { text-align:center; margin:8px 0 12px; }
+.receipt .receipt-totals { margin-top:10px; }
+.receipt .grand { font-weight:700; }
+.receipt .thanks { text-align:center; margin-top:8px; }
+
+@media print {
+  body * { visibility: hidden; }
+  #receipt, #receipt * { visibility: visible; }
+  #receipt { position:absolute; left:0; top:0; }
+}
